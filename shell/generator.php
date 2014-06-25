@@ -81,6 +81,18 @@ class Mage_Shell_Generator extends Mage_Shell_Abstract
                     $data['parent_id'] = $this->getArg('parent');
                 }
 
+                if (($this->getArg('type') === 'order')) {
+
+                    //check additional order attributes
+                    if ($this->getArg('email')) {
+                        $data['email'] = $this->getArg('email');
+                    }
+
+                    if ($this->getArg('method')) {
+                        $data['method'] = $this->getArg('method');
+                    }
+                }
+
                 for ($i=0; $i<$nbr; $i++) {
                     $messages = $creatorInstance->createOneEntity($data);
                     if (is_array($messages) && !empty($messages)) {

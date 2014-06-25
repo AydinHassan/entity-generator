@@ -28,6 +28,14 @@ class Maverick_Generator_Model_Entities_Order implements Maverick_Generator_Mode
 {
 
     /**
+     * @var array
+     */
+    protected $availablePaymentMethods = array(
+        'checkmo',
+        'banktransfer',
+    );
+
+    /**
      * Generate Magento Orders
      *
      * @param $nbrOfEntities
@@ -139,7 +147,7 @@ class Maverick_Generator_Model_Entities_Order implements Maverick_Generator_Mode
             $quote->getShippingAddress()->collectShippingRates();
 
             // Set payment method
-            $paymentData = $this->_getRandomPaymentData();
+            $paymentData = $this->_getPaymentData();
             $quote->getPayment()->importData($paymentData);
 
             // Collect totals and submit all
@@ -237,17 +245,29 @@ class Maverick_Generator_Model_Entities_Order implements Maverick_Generator_Mode
 
     /**
      * Get random payment data from the available methods
+     * Or if one is provided, use that if it is valid
      *
-     * @return mixed
+     * @param string $method
+     * @return string
      */
-    protected function _getRandomPaymentData()
+    protected function _getPaymentData($method = null)
     {
-        $availablePaymentMethods = array(
-                                      array('method' => 'checkmo'),
-                                      array('method' => 'banktransfer')
-                                   );
+        if ($method) {
+            if (in_array($method, $this->availablePaymentMethods)) {
+                return $method;
+            } else {
+                $message = Mage::helper('maverick_generator')->__(
+                    sprintf(
+                        'Payment method: "%s" is not a valid method. Availabe methods: "%s"',
+                        $method,
+                        implode(', ', $this->availablePaymentMethods)
+                    )
+                );
+                Mage::throwException($message);
+            }
+        }
 
-        return $availablePaymentMethods[array_rand($availablePaymentMethods, 1)];
+        return $this->availablePaymentMethods[array_rand($this->availablePaymentMethods, 1)];
     }
 
     /**
@@ -387,17 +407,28 @@ class Maverick_Generator_Model_Entities_Order implements Maverick_Generator_Mode
         $storeId             = Mage::getStoreConfig('generator/order/store_id');
         $shippingDescription = $helper->__('Shipping Method Used By Entity Generator');
 
-        //for ($i=0; $i<$nbrOfEntities; $i++) {
-        $customerId = $this->_getRandomCustomerId($customerResource);
+        if (isset($data['email'])) {
+            //try loading customer with provided email
+            $customer->setWebsiteId(1);
+            $customer->loadByEmail($data['email']);
+            if (!$customer->getId()) {
+                $message = $helper->__(
+                    sprintf('Unable to find a customer entity to create orders with email: "%s"', $email)
+                );
+                Mage::throwException($message);
+            }
+        } else {
+            $customerId = $this->_getRandomCustomerId($customerResource);
 
-        // If no customer found in DB then throw an exception an log error message
-        if (!$customerId) {
-            $message = $helper->__('Unable to find a customer entity to create orders');
-            Mage::throwException($message);
+            // If no customer found in DB then throw an exception an log error message
+            if (!$customerId) {
+                $message = $helper->__('Unable to find a customer entity to create orders');
+                Mage::throwException($message);
+            }
+
+            // Load customer
+            $customer->load($customerId);
         }
-
-        // Load customer
-        $customer->load($customerId);
 
         // Create and initialize quote
         $quote 	= Mage::getModel('sales/quote');
@@ -468,8 +499,8 @@ class Maverick_Generator_Model_Entities_Order implements Maverick_Generator_Mode
         $quote->getShippingAddress()->collectShippingRates();
 
         // Set payment method
-        $paymentData = $this->_getRandomPaymentData();
-        $quote->getPayment()->importData($paymentData);
+        $paymentData = $this->_getPaymentData((isset($data['method']) ? $data['method'] : null));
+        $quote->getPayment()->importData(array('method' => $paymentData));
 
         // Collect totals and submit all
         $quote->collectTotals()->save();
