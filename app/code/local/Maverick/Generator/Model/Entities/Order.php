@@ -409,8 +409,7 @@ class Maverick_Generator_Model_Entities_Order implements Maverick_Generator_Mode
 
         if (isset($data['email'])) {
             //try loading customer with provided email
-            $customer->setWebsiteId(0);
-            $customer->loadByEmail($data['email']);
+            $customer->setWebsiteId(Mage::getModel('core/store')->load($storeId)->getWebsiteId());
             if (!$customer->getId()) {
                 $message = $helper->__(
                     sprintf('Unable to find a customer entity to create orders with email: "%s"', $data['email'])
